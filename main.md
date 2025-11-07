@@ -209,7 +209,7 @@ ansible-navigator:
 ```
 - Browse groups (0) → duyệt các nhóm host trong inventory.
   - Ví dụ: [webservers], [dbservers], [ungrouped].
-  - Bạn có thể chọn một nhóm để xem host bên trong.
+  -  có thể chọn một nhóm để xem host bên trong.
 - Browse hosts (1) → duyệt tất cả các host.
   - Ví dụ: localhost, web1.example.com, …
   - Dễ kiểm tra host nào đang có trong inventory.
@@ -218,13 +218,13 @@ Cách sử dụng:
 - Gõ 0 → Enter → xem danh sách nhóm → gõ số nhóm để mở.
 - Gõ 1 → Enter → xem danh sách host → chọn host để xem biến (hostvars) nếu có.
 - ESC → thoát menu.
-> Đây là giao diện trực quan, giúp bạn kiểm tra inventory mà không cần lệnh JSON dài.
+> Đây là giao diện trực quan, giúp  kiểm tra inventory mà không cần lệnh JSON dài.
 
 
 ## 2.3 Managing Ansible Configuration Files
 
 Cấu hình Ansible
-Bạn có thể tạo và chỉnh sửa hai tệp trong mỗi thư mục dự án Ansible để cấu hình hành vi của Ansible và lệnh `ansible-navigator`. Thư mục dự án Ansible là thư mục mà bạn chạy các playbook bằng cách sử dụng lệnh `ansible-navigator`.
+ có thể tạo và chỉnh sửa hai tệp trong mỗi thư mục dự án Ansible để cấu hình hành vi của Ansible và lệnh `ansible-navigator`. Thư mục dự án Ansible là thư mục mà  chạy các playbook bằng cách sử dụng lệnh `ansible-navigator`.
 
 - `ansible.cfg`, cấu hình hành vi của một số công cụ Ansible.
 - `ansible-navigator.yml`, thay đổi các tùy chọn mặc định cho lệnh `ansible-navigator`.
@@ -262,10 +262,10 @@ time: 10/29/2025
 
 | Vị trí file                             | Phạm vi ảnh hưởng                         | Khi nào nên dùng                                                                                                                 |
 | --------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `/etc/ansible/ansible.cfg`              | Toàn hệ thống (mọi user, mọi project)     | Khi bạn muốn **toàn bộ hệ thống / team** dùng chung 1 cấu hình (ví dụ trong môi trường lab hoặc production có chuẩn thống nhất). |
-| `~/.ansible.cfg`                        | Chỉ ảnh hưởng đến **user đó**             | Khi bạn muốn chỉ **mình bạn** dùng cấu hình này, không ảnh hưởng tới người khác.                                                 |
-| `./ansible.cfg` (trong thư mục project) | Chỉ ảnh hưởng **project hiện tại**        | ✅ Thường dùng nhất trong thực tế — giúp mỗi project có cấu hình riêng (ví dụ user, become, inventory…).                          |
-| Biến môi trường `ANSIBLE_CONFIG`        | Chỉ ảnh hưởng **phiên làm việc hiện tại** | Dùng tạm thời khi bạn muốn test 1 cấu hình khác mà không muốn sửa file thật.                                                     |
+| `/etc/ansible/ansible.cfg`              | Toàn hệ thống (mọi user, mọi project)     | Khi  muốn **toàn bộ hệ thống / team** dùng chung 1 cấu hình (ví dụ trong môi trường lab hoặc production có chuẩn thống nhất). |
+| `~/.ansible.cfg`                        | Chỉ ảnh hưởng đến **user đó**             | Khi  muốn chỉ **mình ** dùng cấu hình này, không ảnh hưởng tới người khác.                                                 |
+| `./ansible.cfg` (trong thư mục project) | Chỉ ảnh hưởng **project hiện tại**        | Thường dùng nhất trong thực tế — giúp mỗi project có cấu hình riêng (ví dụ user, become, inventory…).                          |
+| Biến môi trường `ANSIBLE_CONFIG`        | Chỉ ảnh hưởng **phiên làm việc hiện tại** | Dùng tạm thời khi  muốn test 1 cấu hình khác mà không muốn sửa file thật.                                                     |
 
 Cách Ansible “quyết” cấu hình (ưu tiên)  
 ANSIBLE_CONFIG env → ./ansible.cfg (cwd) → ~/.ansible.cfg → /etc/ansible/ansible.cfg.
@@ -348,6 +348,161 @@ message: Hello world
 message: 'Hello world'
 message: "Hello world"
 ```
+
+Chuỗi nhiều dòng
+```
+address: |
+        Example Company
+        123 Main Street
+        Atlanta, GA 30303
+```
+Dùng > để gộp thành một dòng, bỏ xuống dòng:
+```
+fold_newlines: >
+        This is an example
+        of a long string,
+        that will become
+        a single sentence once folded.
+```
+→ Kết quả: "This is an example of a long string, that will become a single sentence once folded."
+
+YAML Dictionaries (key-value)
+
+Dạng khối
+```
+name: svcrole
+svcservice: httpd
+svcport: 80
+```
+Dạng dòng (inline):
+```
+{name: svcrole, svcservice: httpd, svcport: 80}
+```
+
+YAML Lists
+
+Dạng khối
+```
+hosts:
+  - servera
+  - serverb
+  - serverc
+```
+Dạng dòng (inline):
+
+```
+hosts: [servera, serverb, serverc]
+```
+Obsolete Playbook Shorthand
+
+Dạng viết tắt
+```
+- name: Shorthand form
+  ansible.builtin.service: name=httpd enabled=true state=started
+```
+
+Dạng chuẩn (nên dùng):
+```
+- name: Normal form
+  ansible.builtin.service:
+    name: httpd
+    enabled: true
+    state: started
+```
+
+# Chapter 3.  Managing Variables and Facts
+
+Variables in Playbooks
+
+Biến giúp bạn tái sử dụng giá trị trong nhiều task mà không phải viết lại. Ví dụ:
+
+```
+vars:
+  web_package: httpd
+
+tasks:
+  - name: Install web package
+    ansible.builtin.dnf:
+      name: "{{ web_package }}"
+      state: present
+```
+Defining Variables in Playbooks
+
+Trong playbook (dùng vars):
+
+```
+- hosts: all
+  vars:
+    user: joe
+    home: /home/joe
+```
+Trong file bên ngoài (dùng vars_files):
+
+```
+- hosts: all
+  vars_files:
+    - vars/users.yml
+
+# File users.yml sẽ chứa:
+user: joe
+home: /home/joe
+```
+
+**Using Variables in Playbooks**
+- Dùng dấu `{{ variable_name }}` để gọi biến
+
+- Nếu biến nằm đầu dòng, phải đặt trong dấu nháy "{{ variable }}" để tránh lỗi YAML
+
+Example
+```
+name: "{{ service }}"
+
+# sai 
+name: {{ service }}  # dễ gây lỗi
+```
+
+**Host Variables and Group Variables**
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

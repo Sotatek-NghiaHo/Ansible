@@ -463,33 +463,209 @@ name: {{ service }}  # dễ gây lỗi
 
 **Host Variables and Group Variables**
 
+Defining the ansible_user host variable for demo.example.com:
+```
+[servers]
+demo.example.com  ansible_user=joe
+```
+Group variable
+```
+[servers]
+demo1.example.com
+demo2.example.com
+
+[servers:vars]
+user=joe
+```
+Group gồm nhiều nhóm:
+```
+[servers1]
+demo1.example.com
+demo2.example.com
+
+[servers2]
+demo3.example.com
+demo4.example.com
+
+[servers:children]
+servers1
+servers2
+
+[servers:vars]
+user=joe
+```
+
+**Thư mục `host_vars` và `group_vars`**
+
+```
+project/
+├── inventory
+├── playbook.yml
+├── group_vars/
+│   ├── datacenter1
+│   └── datacenter2
+├── host_vars/
+│   ├── demo1.example.com.yml
+│   └── demo2.example.com.yml
+```
+Example
+```
+[admin@station project]$ cat ~/project/group_vars/datacenter1
+package: httpd
+[admin@station project]$ cat ~/project/group_vars/datacenter2
+package: apache
+```
+
+Overriding Variables from the Command Line
+
+```
+[user@demo ~]$ ansible-navigator run main.yml -e "package=apache"
+```
+
+**Using Dictionaries as Variables**  
+Thay vì:
+```
+user1_first_name: Bob
+user1_last_name: Jones
+```
+
+Dùng:
+```
+users:
+  bjones:
+    first_name: Bob
+    last_name: Jones
+```
+
+Goi bien
+```
+users.bjones.first_name
+
+# or
+users['bjones']['first_name']
+```
+
+**Capturing Command Output with Registered Variables**
+
+Dùng register để lưu kết quả
+```
+- name: Install package
+  ansible.builtin.dnf:
+    name: httpd
+    state: installed
+  register: install_result
+
+- debug:
+    var: install_result
+```
+When you run the play, the debug module dumps the value of the install_result registered variable to the terminal.
+
+```
+[user@demo ~]$ ansible-navigator run playbook.yml -m stdout
+PLAY [Installs a package and prints the result] ****************************
+
+TASK [setup] ***************************************************************
+ok: [demo.example.com]
+
+TASK [Install the package] *************************************************
+ok: [demo.example.com]
+
+TASK [debug] ***************************************************************
+ok: [demo.example.com] => {
+    "install_result": {
+        "changed": false,
+        "msg": "",
+        "rc": 0,
+        "results": [
+            "httpd-2.4.51-7.el9_0.x86_64 providing httpd is already installed"
+        ]
+    }
+}
+
+PLAY RECAP *****************************************************************
+demo.example.com    : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+```
+
+## 3.3 Managing Secrets
+
+Ansible Vault – công cụ giúp bạn mã hóa và bảo vệ dữ liệu nhạy cảm trong dự án Ansible
 
 
+Tạo file được mã hóa
+```
+[root@ansible1 ~]# ansible-
+ansible-builder      ansible-connection   ansible-doc          ansible-inventory    ansible-navigator    ansible-pull         ansible-runner-3     ansible-vault        
+ansible-config       ansible-console      ansible-galaxy       ansible-lint         ansible-playbook     ansible-runner       ansible-runner-3.11  
+[root@ansible1 ~]# ansible-vault create secret.yml
+```
 
+Xem nội dung file mã hóa
+```
+ansible-vault view secret.yml
+```
 
+Chỉnh sửa file mã hóa
+```
+ansible-vault edit secret.yml
+```
 
+Mã hóa file đã có
+```
+ansible-vault encrypt secret1.yml secret2.yml
+```
+- Mã hóa một hoặc nhiều file đã tồn tại.
+- Dùng --output=newfile.yml để lưu ra file mới.
 
+Giải mã file
+```
+ansible-vault decrypt secret1.yml --output=secret1-decrypted.yml
+```
 
+Đổi mật khẩu Vault
+```
+ansible-vault rekey secret.yml
+```
 
+Chạy playbook có file mã hóa
 
+Nếu playbook dùng biến từ file Vault, bạn cần cung cấp mật khẩu:
 
+```
+ansible-navigator run site.yml --vault-id @prompt --pae false
 
+ansible-navigator run site.yml --vault-password-file=vault-pass
 
+export ANSIBLE_VAULT_PASSWORD_FILE=vault-pass
 
+# Phải tắt playbook artifact (--pae false) nếu dùng @prompt, để tránh treo lệnh.
+```
 
+Dùng nhiều Vault password
+```
+ansible-navigator run site.yml \
+  --vault-id one@prompt --vault-id two@prompt
+```
 
+**Quản lý biến nhạy cảm**
 
+Cấu trúc thư mục khuyến nghị:
+```
+project/
+├── ansible.cfg
+├── inventory
+├── playbook.yml
+├── group_vars/
+│   └── webservers/
+│       └── vars
+├── host_vars/
+│   └── demo.example.com/
+│       ├── vars
+│       └── vault
+```
+- vars: biến thường (không mã hóa)
+- vault: biến nhạy cảm (được mã hóa bằng Vault)
 
-
-
-
-
-
-
-
-
-
-
+📌 Tên file trong host_vars và group_vars có thể tùy chọn.
 
 
 

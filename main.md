@@ -301,3 +301,58 @@ web1 | SUCCESS => {
     "ping": "pong"
 }
 ```
+
+
+## 2.5 Writing and Running Playbooks
+
+Executing a Dry Run
+```
+[root@ansible1 test_ansible]# ansible-navigator run -m stdout ping-myself.yml --check
+
+PLAY [Ping test] ***************************************************************
+
+TASK [Gathering Facts] *********************************************************
+ok: [web1]
+
+TASK [Ping remote host] ********************************************************
+ok: [web1]
+
+PLAY RECAP *********************************************************************
+web1                       : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0 
+```
+So sánh
+```
+$ ansible-navigator run ping-myself.yml -m stdout
+$ ansible-navigator run ping-myself.yml
+```
+
+- `-m stdout`: Chạy Ansible Navigator ở chế độ stdout, tức là hiển thị kết quả trực tiếp ra terminal như khi dùng ansible-playbook. Không có giao diện tương tác.
+
+- Không có `-m stdout`: Sử dụng chế độ mặc định là interactive mode, tức là có giao diện bán tương tác trong terminal, cho phép điều hướng qua các phần kết quả.
+
+## 2.7 Implementing Multiple Plays
+
+YAML Syntax
+
+YAML Comments
+```
+# This is a YAML comment
+hostname: server1  # This is also a YAML comment
+```
+
+YAML Strings
+- Chuỗi không bắt buộc phải đặt trong dấu nháy.
+- Có thể dùng ' hoặc " nếu chuỗi có ký tự đặc biệt hoặc khoảng trắng.
+```
+message: Hello world
+message: 'Hello world'
+message: "Hello world"
+```
+
+
+
+
+
+
+
+

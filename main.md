@@ -547,7 +547,12 @@ users['bjones']['first_name']
 
 **Capturing Command Output with Registered Variables**
 
-Dùng register để lưu kết quả
+Khái niệm ngắn gọn
+
+- register là từ khóa của task dùng để lưu (ghi nhận) kết quả trả về của một module vào một biến.
+
+- Biến này có thể được tái sử dụng ở các task sau để in ra (debug), rẽ nhánh (điều kiện when), lặp lại (until/retries), hay xử lý dữ liệu.
+
 ```
 - name: Install package
   ansible.builtin.dnf:
@@ -667,12 +672,357 @@ project/
 
 📌 Tên file trong host_vars và group_vars có thể tùy chọn.
 
+## 3.5 Managing Facts
+
+**Ansible Facts**
+
+Facts là các biến hệ thống được Ansible tự động thu thập từ máy chủ được quản lý (managed host). Chúng chứa thông tin như:
+- Tên host, địa chỉ IP, phiên bản kernel
+- Dung lượng RAM, CPU, ổ đĩa
+- Giao diện mạng, DNS, hệ điều hành
+- Có thể tạo custom facts riêng
+
+Thu thập Facts
+
+- Module `ansible.builtin.setup` sẽ tự động chạy ở đầu mỗi play để thu thập facts.
+
+- Dòng `TASK [Gathering Facts]` khi chạy playbook.
+
+xem tất cả facts
+```
+- name: Fact dump
+  hosts: all
+  tasks:
+    - name: Print all facts
+      ansible.builtin.debug:
+        var: ansible_facts
+```
+→ Chạy playbook này sẽ hiển thị toàn bộ facts dưới dạng dictionary JSON.
+
+Một số facts phổ biến
+```
+Mô tả	|Biến
+---|---
+Tên host ngắn	|ansible_facts['hostname']
+FQDN	|ansible_facts['fqdn']
+IP chính	|ansible_facts['default_ipv4']['address']
+Giao diện mạng|	ansible_facts['interfaces']
+Dung lượng phân vùng	|ansible_facts['devices']['vda']['partitions']['vda1']['size']
+DNS|	ansible_facts['dns']['nameservers']
+Kernel	|ansible_facts['kernel']
+```
+
+Note: Có thể dùng `ansible_facts.default_ipv4.address` thay cho `['default_ipv4']['address']`
 
 
+Tắt việc thu thập facts  
+Nếu không cần facts, có thể tắt
+```
+- name: Không thu thập facts
+  hosts: all
+  gather_facts: false
+```
+
+Thu thập một phần facts
+
+Chỉ lấy facts phần cứng:
+```
+- name: Chỉ lấy hardware facts
+  ansible.builtin.setup:
+    gather_subset:
+      - hardware
+```
+Bỏ qua phần cứng:
+```
+- name: Bỏ qua hardware facts
+  ansible.builtin.setup:
+    gather_subset:
+      - "!hardware"
+```
+
+**Magic Variables – Biến đặc biệt trong Ansible**
+
+Magic variables là những biến tự động được Ansible tạo ra, không cần khai báo. Chúng cung cấp thông tin
 
 
+Biến	|Ý nghĩa
+---|---
+hostvars	|Truy cập biến và facts của host khác trong inventory
+group_names	|Danh sách các nhóm mà host hiện tại thuộc về
+groups|	Danh sách tất cả các nhóm và host trong inventory
+inventory_hostname	|Tên host như khai báo trong inventory (có thể khác với ansible_facts['hostname'])
 
 
+Ví dụ dùng `hostvars`
+```
+- name: In danh sách giao diện mạng của demo2
+  ansible.builtin.debug:
+    var: hostvars['demo2.example.com']['ansible_facts']['interfaces']
+```
+→ Mỗi host trong play sẽ in ra danh sách giao diện của `demo2.example.com`, nếu facts đã được thu thập trước đó.
+
+Cách dùng facts và biến
+
+Kỹ thuật	|Mục đích
+---|---
+ansible_facts	|Truy cập thông tin hệ thống
+ansible_local	|Truy cập custom facts
+set_fact	|Tạo biến mới từ biến khác
+hostvars	|Truy cập biến của host khác
+group_names|	Kiểm tra host thuộc nhóm nào
+inventory_hostname	|Tên host trong inventory
+
+**Cấu trúc thư mục chuẩn cho dự án**
+```
+project/
+├── inventory
+├── playbook.yml
+├── group_vars/
+│   └── webservers.yml
+├── host_vars/
+│   └── demo1.example.com.yml
+├── facts.d/
+│   └── custom.fact  # chứa custom facts dạng INI hoặc JSON
+```
+
+# Chapter 4.  Implementing Task Control
+
+## Writing Loops and Conditional Tasks
+
+
+Simple Loops
+
+Trước đó chưa dùng loop
+```
+- name: Postfix is running
+  ansible.builtin.service:
+    name: postfix
+    state: started
+
+- name: Dovecot is running
+  ansible.builtin.service:
+    name: dovecot
+    state: started
+```
+Có thể dùng loop
+```
+- name: Postfix and Dovecot are running
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: started
+  loop:
+    - postfix
+    - dovecot
+```
+Trong ví dụ sau, biến `mail_services` chứa danh sách các dịch vụ cần chạy.
+```
+vars:
+  mail_services:
+    - postfix
+    - dovecot
+
+tasks:
+  - name: Postfix and Dovecot are running
+    ansible.builtin.service:
+      name: "{{ item }}"
+      state: started
+    loop: "{{ mail_services }}"
+```
+**Loops over a List of Dictionaries**
+
+**Using Register Variables with Loops**
+
+ví dụ
+```
+[student@workstation loopdemo]$ cat loop_register.yml
+---
+- name: Loop Register Test
+  gather_facts: false
+  hosts: localhost
+  tasks:
+    - name: Looping Echo Task
+      ansible.builtin.shell: "echo This is my item: {{ item }}"
+      loop:
+        - one
+        - two
+      register: echo_results
+
+    - name: Show echo_results variable
+      ansible.builtin.debug:
+        var: echo_results
+```
+
+Kết quả khi chạy lệnh 
+```
+[student@workstation loopdemo]$ ansible-navigator run -m stdout loop_register.yml
+
+PLAY [Loop Register Test] ******************************************************
+
+TASK [Looping Echo Task] *******************************************************
+changed: [localhost] => (item=one)
+changed: [localhost] => (item=two)
+
+TASK [Show echo_results variable] **********************************************
+ok: [localhost] => {
+    "echo_results": {
+        "changed": true,
+        "msg": "All items completed",
+        "results": [
+            {
+                "ansible_loop_var": "item",
+                "changed": true,
+                "cmd": "echo This is my item: one",
+                "delta": "0:00:00.004519",
+                "end": "2022-06-29 17:32:54.065165",
+                "failed": false,
+                ...output omitted...
+                "item": "one",
+                "msg": "",
+                "rc": 0,
+                "start": "2022-06-29 17:32:54.060646",
+                "stderr": "",
+                "stderr_lines": [],
+                "stdout": "This is my item: one",
+                "stdout_lines": [
+                    "This is my item: one"
+                ]
+            },
+            {
+                "ansible_loop_var": "item",
+                "changed": true,
+                "cmd": "echo This is my item: two",
+                "delta": "0:00:00.004175",
+                "end": "2022-06-29 17:32:54.296940",
+                "failed": false,
+                ...output omitted...
+                "item": "two",
+                "msg": "",
+                "rc": 0,
+                "start": "2022-06-29 17:32:54.292765",
+                "stderr": "",
+                "stderr_lines": [],
+                "stdout": "This is my item: two",
+                "stdout_lines": [
+                    "This is my item: two"
+                ]
+            }
+        ],
+        "skipped": false
+    }
+}
+...output omitted...
+```
+
+Example Conditionals
+
+![alt text](pic/1.png)
+
+
+## 4.3 Implementing Handlers
+
+Khái niệm Handlers
+- Handler là một loại task đặc biệt, chỉ chạy khi được “notify” bởi một task khác.
+- Dùng để thực hiện hành động bổ sung sau khi có thay đổi — ví dụ: restart service sau khi cập nhật file cấu hình.
+
+Ví dụ:
+```
+tasks:
+  - name: Copy Apache config
+    ansible.builtin.template:
+      src: /var/lib/templates/demo.example.conf.template
+      dest: /etc/httpd/conf.d/demo.example.conf
+    notify:
+      - restart apache
+
+handlers:
+  - name: restart apache
+    ansible.builtin.service:
+      name: httpd
+      state: restarted
+```
+- Task Copy Apache config chỉ notify handler restart apache khi file cấu hình thay đổi.
+- Handler restart apache chạy sau khi tất cả tasks hoàn thành.
+- Có thể notify nhiều handler cùng lúc:
+```
+notify:
+  - restart mysql
+  - restart apache
+```
+Lưu ý
+
+| Đặc điểm                                      | Giải thích                                            |
+| --------------------------------------------- | ----------------------------------------------------- |
+| **Chạy khi được notify**                      | Nếu không có notify → không chạy                      |
+| **Chạy một lần duy nhất**                     | Dù được notify bởi nhiều task                         |
+| **Chạy sau tất cả task**                      | Không chạy ngay khi được notify                       |
+| **Thứ tự chạy theo định nghĩa**               | Chạy theo thứ tự xuất hiện trong phần `handlers:`     |
+| **Tên handler phải duy nhất**                 | Nếu trùng tên → chỉ một handler chạy                  |
+| **Notify chỉ kích hoạt khi task có thay đổi** | Nếu task “ok” (không đổi gì) → handler không được gọi |
+
+## 4.5 Handling Task Failure
+
+2. Quản lý lỗi trong Play
+- Ansible kiểm tra mã trả về (return code) của task để xác định thành công hay thất bại.
+
+- Mặc định, nếu một task thất bại → play dừng lại trên host đó.
+- Có thể thay đổi hành vi này bằng các tùy chọn quản lý lỗi.
+
+3. Bỏ qua lỗi với `ignore_errors` Cho phép play tiếp tục chạy dù task thất bại.
+```
+- name: Cài gói không tồn tại
+  ansible.builtin.dnf:
+    name: notapkg
+    state: latest
+  ignore_errors: true
+```
+
+**Ansible Blocks and Error Handling**
+
+7. Xử lý lỗi với Block, Rescue và Always
+```
+  tasks:
+    - name: Upgrade DB
+      block:
+        - name: upgrade the database
+          ansible.builtin.shell:
+            cmd: /usr/local/lib/upgrade-database
+      rescue:
+        - name: revert the database upgrade
+          ansible.builtin.shell:
+            cmd: /usr/local/lib/revert-database
+      always:
+        - name: always restart the database
+          ansible.builtin.service:
+            name: mariadb
+            state: restarted
+```
+- block: nhóm các task chính.
+- rescue: chạy nếu task trong block thất bại.
+- always: luôn chạy, dù thành công hay thất bại.
+
+dùng block thay vì viết nhiều task riêng lẻ
+- dùng block thay vì viết nhiều task riêng lẻ
+- Quản lý lỗi và phục hồi (Error Handling) Block kết hợp rescue và always
+- Áp dụng điều kiện (when) cho nhiều task
+
+example 
+```
+- name: block example
+  hosts: all
+  tasks:
+    - name: installing and configuring DNF versionlock plugin
+      block:
+      - name: package needed by dnf
+        ansible.builtin.dnf:
+          name: python3-dnf-plugin-versionlock
+          state: present
+      - name: lock version of tzdata
+        ansible.builtin.lineinfile:
+          path: /etc/yum/pluginconf.d/versionlock.list
+          line: tzdata-2016j-1
+          state: present
+      when: ansible_distribution == "RedHat"
+```
 
 
 
